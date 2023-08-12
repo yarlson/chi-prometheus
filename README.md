@@ -1,69 +1,91 @@
-# chi-prometheus
+# Prometheus Middleware for Chi Router
 
-[Prometheus](http://prometheus.io) middleware for [chi](https://github.com/go-chi/chi).
+## Introduction
 
-This is a port of [negroni-prometheus](https://github.com/zbindenren/negroni-prometheus) middleware (written by [Rene Zbinden](https://github.com/zbindenren)).
-
-## Why
-
-[Logging v. instrumentation](http://peter.bourgon.org/blog/2016/02/07/logging-v-instrumentation.html)
-
-Instead of logging request times, it is considered best practice to provide an endpoint for instrumentation tools (like prometheus).
-
-## Installation
-
-    go get github.com/766b/chi-prometheus
+The `chiprom` library provides an elegant integration of Prometheus metrics into the chi router, offering detailed insights into HTTP request handling within a chi-based service. The metrics that can be exposed include request count, latency, and response size, categorized by status code, HTTP method, and path. This integration allows for effortless observability of web services, ensuring that operators can measure, analyze, and troubleshoot their applications' performance with ease.
 
 ## Usage
 
-Take a look at the [example](./example/main.go).
+### Simple Usage
 
-## What do you get
+The most straightforward usage is to instrument your HTTP handlers with basic request metrics.
 
-An endpoint with the following information (stripped output):
+#### Example
 
-    # HELP chi_request_duration_milliseconds How long it took to process the request, partitioned by status code, method and HTTP path.
-    # TYPE chi_request_duration_milliseconds histogram
-    chi_request_duration_milliseconds_bucket{code="OK",method="GET",path="/metrics",service="serviceName",le="300"} 1
-    chi_request_duration_milliseconds_bucket{code="OK",method="GET",path="/metrics",service="serviceName",le="1200"} 1
-    chi_request_duration_milliseconds_bucket{code="OK",method="GET",path="/metrics",service="serviceName",le="5000"} 1
-    chi_request_duration_milliseconds_bucket{code="OK",method="GET",path="/metrics",service="serviceName",le="+Inf"} 1
-    chi_request_duration_milliseconds_sum{code="OK",method="GET",path="/metrics",service="serviceName"} 2.003123
-    chi_request_duration_milliseconds_count{code="OK",method="GET",path="/metrics",service="serviceName"} 1
-    chi_request_duration_milliseconds_bucket{code="OK",method="GET",path="/ok",service="serviceName",le="300"} 0
-    chi_request_duration_milliseconds_bucket{code="OK",method="GET",path="/ok",service="serviceName",le="1200"} 0
-    chi_request_duration_milliseconds_bucket{code="OK",method="GET",path="/ok",service="serviceName",le="5000"} 2
-    chi_request_duration_milliseconds_bucket{code="OK",method="GET",path="/ok",service="serviceName",le="+Inf"} 2
-    chi_request_duration_milliseconds_sum{code="OK",method="GET",path="/ok",service="serviceName"} 4747.529026
-    chi_request_duration_milliseconds_count{code="OK",method="GET",path="/ok",service="serviceName"} 2
-    # HELP chi_requests_total How many HTTP requests processed, partitioned by status code, method and HTTP path.
-    # TYPE chi_requests_total counter
-    chi_requests_total{code="OK",method="GET",path="/metrics",service="serviceName"} 1
-    chi_requests_total{code="OK",method="GET",path="/ok",service="serviceName"} 2
+```go
+package main
+import (
+    "github.com/go-chi/chi/v5"
+    "github.com/yarlson/chiprom"
+)
 
-## Pattern Middleware Usage
+func main() {
+    r := chi.NewRouter()
+    r.Use(chiprom.NewMiddleware("myservice"))
 
-Take a look at the [example](./pattern_example/main.go).
+    // ... your handlers ...
 
-## What do you get 
+    http.ListenAndServe(":8080", r)
+}
+```
 
-An endpoint with the following information (stripped output):
+This example demonstrates how you can start instrumenting your chi-based service with default Prometheus metrics. The middleware will track the request count, latency, and response size, categorized by the status code, HTTP method, and path.
 
-    # HELP chi_pattern_request_duration_milliseconds How long it took to process the request, partitioned by status code, method and HTTP path (with patterns).
-    # TYPE chi_pattern_request_duration_milliseconds histogram
-    chi_pattern_request_duration_milliseconds_bucket{code="OK",method="GET",path="/metrics",service="test_service",le="300"} 1
-    chi_pattern_request_duration_milliseconds_bucket{code="OK",method="GET",path="/metrics",service="test_service",le="1200"} 1
-    chi_pattern_request_duration_milliseconds_bucket{code="OK",method="GET",path="/metrics",service="test_service",le="5000"} 1
-    chi_pattern_request_duration_milliseconds_bucket{code="OK",method="GET",path="/metrics",service="test_service",le="+Inf"} 1
-    chi_pattern_request_duration_milliseconds_sum{code="OK",method="GET",path="/metrics",service="test_service"} 0.975926
-    chi_pattern_request_duration_milliseconds_count{code="OK",method="GET",path="/metrics",service="test_service"} 1
-    chi_pattern_request_duration_milliseconds_bucket{code="OK",method="GET",path="/users/{firstName}",service="test_service",le="300"} 0
-    chi_pattern_request_duration_milliseconds_bucket{code="OK",method="GET",path="/users/{firstName}",service="test_service",le="1200"} 0
-    chi_pattern_request_duration_milliseconds_bucket{code="OK",method="GET",path="/users/{firstName}",service="test_service",le="5000"} 2
-    chi_pattern_request_duration_milliseconds_bucket{code="OK",method="GET",path="/users/{firstName}",service="test_service",le="+Inf"} 2
-    chi_pattern_request_duration_milliseconds_sum{code="OK",method="GET",path="/users/{firstName}",service="test_service"} 4755.052755
-    chi_pattern_request_duration_milliseconds_count{code="OK",method="GET",path="/users/{firstName}",service="test_service"} 2
-    # HELP chi_pattern_requests_total How many HTTP requests processed, partitioned by status code, method and HTTP path (with patterns).
-    # TYPE chi_pattern_requests_total counter
-    chi_pattern_requests_total{code="OK",method="GET",path="/metrics",service="test_service"} 1
-    chi_pattern_requests_total{code="OK",method="GET",path="/users/{firstName}",service="test_service"} 2
+### Using Custom Latency Buckets
+
+You can customize the latency histograms with your desired buckets.
+
+#### Example
+
+```go
+buckets := []float64{100, 500, 2000}
+r.Use(chiprom.NewMiddleware("myservice", buckets...))
+```
+
+### Monitoring With Routing Patterns
+
+To group requests by chi routing patterns, such as monitoring paths like `/users/{firstName}` instead of individual instances like `/users/bob`, you can utilize the `NewPatternMiddleware`.
+
+#### Example
+
+```go
+r.Use(chiprom.NewPatternMiddleware("myservice"))
+```
+
+### Advanced Usage
+
+You may want to combine both pattern monitoring and custom buckets. Here is a more complex example:
+
+```go
+buckets := []float64{100, 500, 2000}
+r.Use(chiprom.NewPatternMiddleware("myservice", buckets...))
+
+// ... your handlers ...
+
+http.ListenAndServe(":8080", r)
+```
+
+## Metrics
+
+The library exposes the following metrics:
+
+- `chi_requests_total`: How many HTTP requests processed, partitioned by status code, method, and HTTP path.
+- `chi_request_duration_milliseconds`: How long it took to process the request, partitioned by status code, method, and HTTP path.
+- `chi_pattern_requests_total`: Similar to `chi_requests_total`, but with patterns.
+- `chi_pattern_request_duration_milliseconds`: Similar to `chi_request_duration_milliseconds`, but with patterns.
+
+## Installation
+
+To add `chiprom` to your Go project, you can use `go get`:
+
+```shell
+go get -u github.com/yarlson/chiprom
+```
+
+## Contribute
+
+Contributions are welcome. Feel free to open a pull request or file an issue on the [GitHub repository](https://github.com/yarlson/chiprom).
+
+## License
+
+This library is distributed under the Apache 2.0 License. See the [LICENSE](LICENSE) file for details.

@@ -1,20 +1,24 @@
-// Port https://github.com/zbindenren/negroni-prometheus for chi router
-package chiprometheus
+// Package chiprom provides integration of Prometheus metrics into the chi router.
+// This allows for detailed monitoring of HTTP request handling within a chi-based service.
+// The metrics exposed include request count, latency, and response size, categorized by status code, HTTP method, and path.
+package chiprom
 
 import (
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/go-chi/chi"
-	"github.com/go-chi/chi/middleware"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+// Default bucket values for histogram metrics.
 var (
 	dflBuckets = []float64{300, 1200, 5000}
 )
 
+// Constant metric names used throughout the middleware.
 const (
 	reqsName           = "chi_requests_total"
 	latencyName        = "chi_request_duration_milliseconds"
@@ -22,14 +26,16 @@ const (
 	patternLatencyName = "chi_pattern_request_duration_milliseconds"
 )
 
-// Middleware is a handler that exposes prometheus metrics for the number of requests,
-// the latency and the response size, partitioned by status code, method and HTTP path.
+// Middleware encapsulates the counters and histograms for monitoring
+// the number of requests, their latency, and the response size.
 type Middleware struct {
 	reqs    *prometheus.CounterVec
 	latency *prometheus.HistogramVec
 }
 
-// NewMiddleware returns a new prometheus Middleware handler.
+// NewMiddleware constructs a Middleware that records basic request metrics.
+// Name parameter identifies the service, and buckets customizes latency histograms.
+// It wraps the next HTTP handler, instrumenting how requests are processed.
 func NewMiddleware(name string, buckets ...float64) func(next http.Handler) http.Handler {
 	var m Middleware
 	m.reqs = prometheus.NewCounterVec(
@@ -57,6 +63,7 @@ func NewMiddleware(name string, buckets ...float64) func(next http.Handler) http
 	return m.handler
 }
 
+// A private function that defines how the basic request metrics are gathered.
 func (c Middleware) handler(next http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
@@ -68,8 +75,9 @@ func (c Middleware) handler(next http.Handler) http.Handler {
 	return http.HandlerFunc(fn)
 }
 
-// NewPatternMiddleware returns a new prometheus Middleware handler that groups requests by the chi routing pattern.
-// EX: /users/{firstName} instead of /users/bob
+// NewPatternMiddleware constructs a Middleware that groups requests by chi routing pattern.
+// For example, patterns like /users/{firstName} can be monitored rather than specific instances like /users/bob.
+// Name identifies the service and buckets customizes latency histograms.
 func NewPatternMiddleware(name string, buckets ...float64) func(next http.Handler) http.Handler {
 	var m Middleware
 	m.reqs = prometheus.NewCounterVec(
@@ -97,6 +105,7 @@ func NewPatternMiddleware(name string, buckets ...float64) func(next http.Handle
 	return m.patternHandler
 }
 
+// A private function defining how the pattern-specific request metrics are gathered.
 func (c Middleware) patternHandler(next http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
