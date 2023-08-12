@@ -1,14 +1,14 @@
-package chiprometheus
+package chiprom
 
 import (
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
-	"github.com/go-chi/chi"
-	"github.com/prometheus/client_golang/prometheus"
+	"github.com/go-chi/chi/v5"
 )
 
 func Test_Logger(t *testing.T) {
@@ -18,15 +18,15 @@ func Test_Logger(t *testing.T) {
 	m := NewMiddleware("test")
 	n.Use(m)
 
-	n.Handle("/metrics", prometheus.Handler())
+	n.Handle("/metrics", promhttp.Handler())
 	n.Get(`/ok`, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintln(w, "ok")
+		_, _ = fmt.Fprintln(w, "ok")
 	})
 
 	n.Get(`/users/{firstName}`, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintln(w, "ok")
+		_, _ = fmt.Fprintln(w, "ok")
 	})
 
 	req1, err := http.NewRequest("GET", "http://localhost:3000/ok", nil)
@@ -80,15 +80,15 @@ func Test_PatternLogger(t *testing.T) {
 	m := NewPatternMiddleware("patternOnlyTest")
 	n.Use(m)
 
-	n.Handle("/metrics", prometheus.Handler())
+	n.Handle("/metrics", promhttp.Handler())
 	n.Get(`/ok`, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintln(w, "ok")
+		_, _ = fmt.Fprintln(w, "ok")
 	})
 
 	n.Get(`/users/{firstName}`, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintln(w, "ok")
+		_, _ = fmt.Fprintln(w, "ok")
 	})
 
 	req1, err := http.NewRequest("GET", "http://localhost:3000/ok", nil)
@@ -151,15 +151,15 @@ func Test_MultipleLoggers(t *testing.T) {
 	n.Use(mid)
 	n.Use(m)
 
-	n.Handle("/metrics", prometheus.Handler())
+	n.Handle("/metrics", promhttp.Handler())
 	n.Get(`/ok`, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintln(w, "ok")
+		_, _ = fmt.Fprintln(w, "ok")
 	})
 
 	n.Get(`/users/{firstName}`, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintln(w, "ok")
+		_, _ = fmt.Fprintln(w, "ok")
 	})
 
 	req1, err := http.NewRequest("GET", "http://localhost:3000/ok", nil)
